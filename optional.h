@@ -17,6 +17,8 @@ public:
 
     Optional() = default;
 
+
+
     Optional(const T& item) {
         buff_ = new (&data_[0]) T(item);
 
@@ -50,8 +52,8 @@ public:
     }
 
     bool HasValue() const {return is_initialized_;}
-    T& Value() {if (!is_initialized_) {throw BadOptionalAccess();} else {return *buff_;}}
-    const T& Value() const {if (!is_initialized_) {throw BadOptionalAccess();} else {return *buff_;}}
+    T& Value() &{if (!is_initialized_) {throw BadOptionalAccess();} else {return *buff_;}}
+    const T& Value() const &{if (!is_initialized_) {throw BadOptionalAccess();} else {return *buff_;}}
 
     void Reset() {is_initialized_ ? (is_initialized_ = false, buff_->~T()) : void();}
 
@@ -88,10 +90,22 @@ public:
         return *this;
     }
 
-    T& operator*() {return Value();}
-    const T& operator*() const {return Value();}
+    T&& operator*() &&{
+        return std::move(Value());
+    }
+    T&& Value() &&{
+        if (!is_initialized_) {throw BadOptionalAccess();} else {return std::move(*buff_);}
+    }
+
+    T& operator*() &{return Value();}
+    const T& operator*() const &{return Value();}
     T* operator->() {return &Value();}
     const T* operator->() const {return &Value();}
+
+    template <typename... Vs>
+    void Emplace(Vs&&...vs);
+
+
 
 private:
     T* buff_ = nullptr;
@@ -99,3 +113,12 @@ private:
     alignas(T) char data_[sizeof(T)]{};
     bool is_initialized_ = false;
 };
+
+template <typename T> template <typename... Vs>
+void Optional<T>::Emplace(Vs&&...vs) {
+    if (HasValue()) {
+        Reset();
+    }
+    buff_ = new(&data_[0]) T(std::forward<Vs>(vs)...);
+    is_initialized_ = true;
+}
